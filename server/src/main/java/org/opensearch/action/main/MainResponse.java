@@ -32,6 +32,8 @@
 
 package org.opensearch.action.main;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.Build;
 import org.opensearch.LegacyESVersion;
 import org.opensearch.Version;
@@ -45,6 +47,7 @@ import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParser;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
 
@@ -111,6 +114,34 @@ public class MainResponse extends ActionResponse implements ToXContentObject {
         }
     }
 
+    /**
+     * For some quick testing, you can touch the file 'es-versioning' to activate
+     * ES-compatible versioning. Delete it to turn off. This is a dynamic property.
+     *
+     * @return the version
+     */
+    private String getOpenSearchVersion() {
+        final Logger logger = LogManager.getLogger(MainResponse.class);
+        String tempDir = System.getProperty("java.io.tmpdir");
+        logger.info("Temporary Directory: {}. You can place 'es-versioning' in this directory.", tempDir);
+
+        boolean useEsVersion;
+        try {
+            useEsVersion = new File(new File(tempDir), "es-versioning").exists();
+        } catch (Exception e) {
+            useEsVersion = false;
+            logger.error("Unable to read es-versioning file.", e);
+        }
+
+        String version = build.getQualifiedVersion();
+        if(useEsVersion)
+            version = "7.10.2";
+
+        logger.info("Using {} for 'version.number'.", version);
+
+        return version;
+    }
+
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
@@ -119,7 +150,7 @@ public class MainResponse extends ActionResponse implements ToXContentObject {
         builder.field("cluster_uuid", clusterUuid);
         builder.startObject("version")
             .field("distribution", build.getDistribution())
-            .field("number", build.getQualifiedVersion())
+            .field("number", getOpenSearchVersion())
             .field("build_type", build.type().displayName())
             .field("build_hash", build.hash())
             .field("build_date", build.date())
